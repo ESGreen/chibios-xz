@@ -1,3 +1,4 @@
+#ifndef SLIM_MODE
 #include "orchard-app.h"
 #include "orchard-ui.h"
 #include "led.h"
@@ -54,3 +55,4 @@ static void ostrobe_exit(OrchardAppContext *ctx) {
 }
 
 orchard_app("Strobe", ostrobe_init, ostrobe_setup, ostrobe_event, ostrobe_exit);
+#endif

@@ -1,3 +1,4 @@
+#ifndef SLIM_MODE
 /*
     ChibiOS/RT - Copyright (C) 2006-2013 Giovanni Di Sirio
 
@@ -31,6 +32,8 @@
 extern MMCDriver MMCD1;
 
 #if 0
+//rx_dma_count is defined in mic.c but this is the only oplace that
+//uses it. Can't see how useful that is. Commented out for the time
 uint32_t test_dest[512];
 uint32_t test_source[4];
 
@@ -269,3 +272,4 @@ void cmd_sd(BaseSequentialStream *chp, int argc, char *argv[])
   }
 #endif
 }
+#endif /* SLIM_MODE */

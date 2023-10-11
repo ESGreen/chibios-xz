@@ -237,6 +237,7 @@ void touchStart(void) {
   touch_force_cal();
 }
 
+#ifdef TESTING_PLEASE
 OrchardTestResult test_captouch(const char *my_name, OrchardTestType test_type) {
   (void) my_name;
   char touchstat[9];
@@ -287,3 +288,4 @@ OrchardTestResult test_captouch(const char *my_name, OrchardTestType test_type) 
 }
 orchard_test("ctouch", test_captouch);
 
+#endif

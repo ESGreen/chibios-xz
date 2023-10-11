@@ -1,3 +1,4 @@
+#ifndef SLIM_MODE
 #include "orchard-app.h"
 #include "orchard-ui.h"
 #include "userconfig.h"
@@ -87,3 +88,4 @@ static void sexstats_exit(OrchardAppContext *context) {
 }
 
 orchard_app("Sex stats", sexstats_init, sexstats_start, sexstats_event, sexstats_exit);
+#endif

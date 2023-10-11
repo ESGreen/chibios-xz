@@ -1,3 +1,4 @@
+#ifdef TESTING_PLEASE
 #ifndef __ORCHARD_TEST_H__
 #define __ORCHARD_TEST_H__
 
@@ -77,3 +78,4 @@ OrchardTestResult orchardTestPrompt(char *line1, char *line2, int8_t interaction
 #define RADIO_TYPE_PEER_TO_DUT  7
 
 #endif /* __ORCHARD_TEST_H__ */
+#endif /* TESTING_PLEASE */

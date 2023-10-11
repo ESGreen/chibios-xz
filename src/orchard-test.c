@@ -1,3 +1,4 @@
+#ifdef TESTING_PLEASE
 #include <stdio.h>
 #include <string.h>
 
@@ -199,3 +200,4 @@ OrchardTestResult orchardTestPrompt(char *line1, char *line2,
 
   return result;
 }
+#endif

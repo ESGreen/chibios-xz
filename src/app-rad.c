@@ -1,3 +1,4 @@
+#ifndef SLIM_MODE
 #include "orchard-app.h"
 #include "orchard-ui.h"
 #include "userconfig.h"
@@ -9,7 +10,6 @@
 #define LINE_CHAN 0
 
 static uint8_t line = 0;
-uint8_t anonymous = 0;
 static struct OrchardUiContext listUiContext;
 static const  char title[] = "Pick a channel";
 
@@ -170,3 +170,4 @@ static void setting_exit(OrchardAppContext *context) {
 }
 
 orchard_app("Settings", setting_init, setting_start, setting_event, setting_exit);
+#endif

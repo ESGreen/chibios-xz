@@ -1,3 +1,4 @@
+#ifndef SLIM_MODE
 #include "fixmath.h"
 #include "orchard-app.h"
 
@@ -116,3 +117,4 @@ static void sf_exit(OrchardAppContext *ctx) {
 }
 
 orchard_app("Starfield", sf_init, sf_setup, sf_event, sf_exit);
+#endif 

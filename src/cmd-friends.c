@@ -1,3 +1,4 @@
+#ifndef SLIM_MODE
 #include "ch.h"
 #include "hal.h"
 #include "shell.h"
@@ -94,3 +95,4 @@ void cmd_friendsim(BaseSequentialStream *chp, int argc, char *argv[]) {
 }
 //orchard_command("friendsim", cmd_friendsim);
 
+#endif

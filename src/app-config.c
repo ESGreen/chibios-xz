@@ -1,3 +1,4 @@
+#ifndef SLIM_MODE
 #include "orchard-app.h"
 #include "orchard-ui.h"
 #include "userconfig.h"
@@ -88,3 +89,4 @@ static void config_exit(OrchardAppContext *context) {
 }
 
 orchard_app("Consent setting", config_init, config_start, config_event, config_exit);
+#endif

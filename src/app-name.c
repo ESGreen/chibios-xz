@@ -1,3 +1,4 @@
+#ifndef SLIM_MODE
 #include "orchard-app.h"
 #include "orchard-ui.h"
 
@@ -129,3 +130,4 @@ static void name_exit(OrchardAppContext *context) {
 orchard_app("Set your name", name_init, name_start, name_event, name_exit);
 
 
+#endif

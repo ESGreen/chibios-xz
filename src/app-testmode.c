@@ -1,3 +1,4 @@
+#ifdef TESTING_PLEASE
 #include "orchard-app.h"
 #include "orchard-test.h"
 
@@ -61,4 +62,5 @@ static void testpeer_event(OrchardAppContext *context,
 }
 
 orchard_app("~testpeer", NULL, testpeer_start, testpeer_event, NULL);
+#endif
 #endif

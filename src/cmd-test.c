@@ -1,3 +1,4 @@
+#ifdef TESTING_PLEASE
 #include "hal.h"
 #include "ch.h"
 #include "shell.h"
@@ -104,3 +105,4 @@ void cmd_testall(BaseSequentialStream *chp, int argc, char *argv[])
   start_test = 0;
   test_started = 0;
 }
+#endif
