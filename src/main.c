@@ -39,7 +39,11 @@
 #include "paging.h"
 #include "analog.h"
 
+#ifdef TESTING_PLEASE
 #include "orchard-test.h"
+#endif
+
+#include "AudioProcessor.h"
 
 int sd_active = 0;
 uint8_t sd_dbg_val = 0;
@@ -161,7 +165,9 @@ static THD_FUNCTION(orchard_event_thread, arg) {
 
   accelStart(&I2CD1);
   flashStart();
+#ifdef TESTING_PLEASE
   orchardTestInit();
+#endif
   
   addEntropy(SIM->UIDL);  // something unique to each device, but repeatable
   addEntropy(SIM->UIDML);
@@ -223,7 +229,11 @@ static THD_FUNCTION(orchard_event_thread, arg) {
   mmcStart(&MMCD1, &mmc_config); // driver, config
   
   evtTableInit(orchard_events, 12);
+  
+  //- This will create all the chibos event objects
   orchardEventsStart();
+
+  
   orchardAppInit();
 
   spiStart(&SPID2, &spi_config);
@@ -241,8 +251,11 @@ static THD_FUNCTION(orchard_event_thread, arg) {
   spiIgnore(&SPID1, 1);
   spiUnselect(&SPID1);
 #endif
-  
+
+#ifdef TESTING_PLEASE
   orchardTestRunAll(stream, orchardTestPoweron);
+#endif
+  
   /*
    * Activates the EXT driver 1.
    */
@@ -316,11 +329,14 @@ int main(void) {
   shellInit();
 
   chprintf(stream, SHELL_NEWLINE_STR SHELL_NEWLINE_STR);
-  chprintf(stream, "bunnie-BM17 bootloader.  Based on build %s"SHELL_NEWLINE_STR,
+  chprintf(stream, "eggs-BM23 bootloader.  Based on build %s"SHELL_NEWLINE_STR,
 	   gitversion);
   chprintf(stream, "Core free memory : %d bytes"SHELL_NEWLINE_STR,
 	   chCoreGetStatusX());
 
+  //- Initalize the audio system
+  initalizeAudio ();
+  
   flash_init = 0;
   
   // this hooks all the events, so start it only after all events are initialized
@@ -356,6 +372,7 @@ int main(void) {
   }
 }
 
+#ifdef TESTING_PLEASE
 OrchardTestResult test_cpu(const char *my_name, OrchardTestType test_type) {
   (void) my_name;
   
@@ -374,3 +391,4 @@ OrchardTestResult test_cpu(const char *my_name, OrchardTestType test_type) {
   return orchardResultNoTest;
 }
 orchard_test("cpu", test_cpu);
+#endif

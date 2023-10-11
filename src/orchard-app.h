@@ -36,7 +36,9 @@ void orchardAppExit(void);
 void orchardAppTimer(const OrchardAppContext *context,
                      uint32_t usecs,
                      bool repeating);
-void friendsSort(void);
+
+
+void friendsSort (void);
 const char **friendsGet(void);
 void friendsLock(void);
 void friendsUnlock(void);

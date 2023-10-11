@@ -25,6 +25,8 @@
 
 #include "shellcfg.h"
 
+#include "AudioProcessor.h"
+
 /*
 
   key layout to code
@@ -645,8 +647,8 @@ static void handle_chargecheck_timeout(eventid_t id) {
   }
 
   if( voltage < BRIGHT_THRESH ) { // limit brightness when battery is weak
-    if( getShift() < 3 )
-      setShift(3);
+    if(getShiftCeiling() < 3 )
+      setShiftCeiling(3);
   }
 
   if( voltage < SAFETY_THRESH ) {  // drop to saftey pattern to notify user of battery almost dead
@@ -654,8 +656,8 @@ static void handle_chargecheck_timeout(eventid_t id) {
       effectsSetPattern(effectsNameLookup("safetyPattern"));
 
     // limit brightness to guarantee ~2 hours runtime in safety mode
-    if( getShift() < 4 )
-      setShift(4);
+    if (getShiftCeiling () < 4)
+       setShiftCeiling (4);
   }
 
   // "pump" is now gone when switching interrupt mode from crcOK to packet ready
@@ -701,8 +703,11 @@ static void run_launcher(void *arg) {
   run_launcher_timer_engaged = false;
   chSysUnlockFromISR();
 }
-
+#ifdef TESTING_PLEASE
 extern int start_test;
+#else
+static const int start_test = 0;
+#endif
 static void poke_run_launcher_timer(eventid_t id) {
 
   (void)id;
@@ -918,16 +923,20 @@ void orchardAppTimer(const OrchardAppContext *context,
 void update_sd(int16_t *samples);
 static void i2s_full_handler(eventid_t id) {
   (void)id;
-  OrchardAppEvent evt;
 
-  if( gen_mic_event ) {
-    gen_mic_event = 0;
+  processAudioFrame ();
+
+
+  // OrchardAppEvent evt;
+
+  // if( gen_mic_event ) {
+  //   gen_mic_event = 0;
     
-    evt.type = adcEvent;
-    evt.adc.code = adcCodeMic;
-    if( !ui_override )
-      instance.app->event(instance.context, &evt);
-  }
+  //   evt.type = adcEvent;
+  //   evt.adc.code = adcCodeMic;
+  //   if( !ui_override )
+  //      instance.app-> event (instance.context, &evt);
+  // }
   //  this is for MMC saving
   //if( sd_active ) {
   //update_sd(analogReadMic());
@@ -935,11 +944,11 @@ static void i2s_full_handler(eventid_t id) {
   
 }
 
-static void i2s_reset_handler(eventid_t id) {
-  (void)id;
+// static void i2s_reset_handler(eventid_t id) {
+//   (void)id;
  
-  // sd_offset = DATA_OFFSET_START;   // not yet implemented
-}
+//   // sd_offset = DATA_OFFSET_START;   // not yet implemented
+// }
 
 static void accel_bump_event(eventid_t id) {
   (void) id;

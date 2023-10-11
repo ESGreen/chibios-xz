@@ -138,8 +138,10 @@ static void launcher_start(OrchardAppContext *context) {
 
 }
 
+#ifdef TESTING_PLEASE
 extern int start_test;
 extern int test_started;
+#endif
 
 void launcher_event(OrchardAppContext *context, const OrchardAppEvent *event) {
   struct launcher_list *list = (struct launcher_list *)context->priv;
@@ -169,6 +171,7 @@ void launcher_event(OrchardAppContext *context, const OrchardAppEvent *event) {
     redraw_list(list);
   }
 
+#ifdef TESTING_PLEASE
   if( start_test == 1 ) {
     led_app = orchardAppByName("~testmode");
     if( led_app != NULL ) {
@@ -176,6 +179,7 @@ void launcher_event(OrchardAppContext *context, const OrchardAppEvent *event) {
       orchardAppRun(led_app);
     }
   }
+#endif
 
   if( (ui_timeout <= 0) || (ui_timeout > (BLINKY_DEFAULT_DELAY / 1000)) ) {
 #ifdef TESTER_DEVICE

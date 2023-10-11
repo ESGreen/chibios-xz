@@ -5,7 +5,9 @@
 
 # Compiler options here.
 ifeq ($(USE_OPT),)  # use O2 for production
-  USE_OPT = -O2 -ggdb -fomit-frame-pointer -falign-functions=16 -nostdlib -DSHELL_CONFIG_FILE -fstack-protector
+  USE_OPT = -O2 # -O2 or -Os
+  USE_OPT += -fomit-frame-pointer -falign-functions=16 -nostdlib -DSHELL_CONFIG_FILE -fstack-protector
+  USE_OPT += -ggdb
 endif
 
 # C specific options here (added to USE_OPT).
@@ -126,12 +128,19 @@ LIBFIXMATH = ../libfixmath
 include $(LIBFIXMATH)/build.mk
 
 # libfixmatrix
-LIBFIXMATRIX = ../libfixmatrix
-include $(LIBFIXMATRIX)/build.mk
+#LIBFIXMATRIX = ../libfixmatrix
+#include $(LIBFIXMATRIX)/build.mk
 
 #C90TFS Freescale Flash drivers
 LIBC90TFS = ../C90TFS
 include $(LIBC90TFS)/build.mk
+
+# CM4 DSP Lib
+# Some notes on libs. I tried to add the cm4 dsp lib. This is an arm lib that has all the fun dsp tools. Great! cause
+# the chip on this thing has a built in dsp and fpu. Problem is this lib takes way way too much memory
+#CM4_DSP_LIB = ../cm4-dsp-lib
+#DSPBASE = $(CM4_DSP_LIB)
+#include $(CM4_DSP_LIB)/dsp.mk
 
 # C sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
@@ -177,10 +186,16 @@ CSRC = \
        $(LIBFIXMATHSRC) \
        $(LIBFIXMATRIXSRC) \
        $(LIBC90TFSSRC) \
+       fx_testPattern.c \
+       kissfft/kiss_fft.c \
+       kissfft/kiss_fftr.c \
+       AudioProcessor.c 
+
 
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
-CPPSRC =
+CPPSRC = 
+
 
 # C sources to be compiled in ARM mode regardless of the global setting.
 # NOTE: Mixing ARM and THUMB mode enables the -mthumb-interwork compiler
@@ -193,7 +208,7 @@ ACSRC =
 ACPPSRC =
 
 # C sources to be compiled in THUMB mode regardless of the global setting.
-# NOTE: Mixing ARM and THUMB mode enables the -mthumb-interwork compiler
+# NOTE: Mixing ARMand THUMB mode enables the -mthumb-interwork compiler
 #       option that results in lower performance and larger code size.
 TCSRC =
 
@@ -210,7 +225,7 @@ INCDIR = $(CHIBIOS)/os/license \
          $(STARTUPINC) $(KERNINC) $(PORTINC) $(OSALINC) \
          $(HALINC) $(PLATFORMINC) $(BOARDINC) $(TESTINC) \
          $(STREAMSINC) $(SHELLINC) $(GFXINC) $(LIBFIXMATHINC) $(LIBC90TFSINC) \
-         -Isda
+         -Isda 
 
 #
 # Project, sources and paths
@@ -241,7 +256,7 @@ BIN  = $(CP) -O binary
 SREC = $(CP) -O srec
 
 # ARM-specific options here
-AOPT =
+AOPT = 
 
 # THUMB-specific options here
 TOPT = -mthumb -DTHUMB
@@ -261,7 +276,23 @@ CPPWARN = -Wall -Wextra -Wundef
 #
 
 # List all user C define here, like -D_DEBUG=1  -DTESTER_DEVICE for tester peer
-UDEFS = -DTARGET_MK22F -D__FPU_PRESENT=1 # -DTESTER_DEVICE ## -DDISABLE_WATCHDOG  comment out -DDISABLE_WATCHDOG for production # 
+UDEFS = -DTARGET_MK22F -D__FPU_PRESENT=1# -DTESTER_DEVICE ## -DDISABLE_WATCHDOG  comment out -DDISABLE_WATCHDOG for production #
+UDEFS +=  -DSCOPE_MODE=0    # Scope mode has two things. One as a screen saver it will show the scope. Also, it has a scope app
+                            # These are turned off so that I can create an audio processing thread that runs in to process the audio
+                            # data. The scope does that but it gets in my way.
+
+# Debug Test pattern. That allows you to turn ligts on and off individually. See which led is which
+#UDEFS += -DEGGS_TESTPATTERN  # This will add a test pattern for testing things
+
+UDEFS += -DARM_MATH_CM4
+
+# Slim mode is a glag that will do everything it can to shrink the code base
+UDEFS += -DSLIM_MODE
+
+# Testing is important but tests take up too much space uncomment this to bring back tests
+#UDEFS += -DTESTING_PLEASE
+UDEFS += -DNDEBUG  # This turns off the debug for kiss fft
+UDEFS += -DKISS_FFT_MALLOC=dummyMalloc -DKISS_FFT_FREE=dummyFree
 
 # Define ASM defines here
 UADEFS =
@@ -273,7 +304,9 @@ UINCDIR =
 ULIBDIR =
 
 # List all user libraries here
-ULIBS = lib/libm.a lib/armv7e-m-fpu-libgcc.a lib/libc-nano-armv7e-m-fpu.a 
+ULIBS = lib/libm.a lib/armv7e-m-fpu-libgcc.a lib/libc-nano-armv7e-m-fpu.a
+
+#ULIBS += $(CM4_DSP_LIB)/libmath_cm4f.a
 #ULIBS = lib/libm.a lib/libc_nano.a lib/libg_nano.a lib/libgcc.a 
 
 #

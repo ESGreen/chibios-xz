@@ -1,3 +1,5 @@
+#if defined SCOPE_MODE && SCOPE_MODE > 0
+
 #include "orchard-app.h"
 #include "orchard-ui.h"
 
@@ -257,3 +259,4 @@ static void oscope_exit(OrchardAppContext *context) {
 orchard_app("Sound scope", oscope_init, oscope_start, oscope_event, oscope_exit);
 
 
+#endif /* SCOPE_MODE */

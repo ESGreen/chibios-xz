@@ -68,8 +68,11 @@ void cmd_testall(BaseSequentialStream *chp, int argc, char *argv[]);
 void gg2Command(BaseSequentialStream *chp, int argc, char *argv[]);
 #endif
 
+#ifdef EGGS_TESTPATTERN
+void cmd_SetTestPatternLed (BaseSequentialStream* stream, int argc, char* argv []);
+#endif
+
 static const ShellCommand commands[] = {
-  {"test", testCommand},
   {"i2c", i2cCommand},
   {"captest", capTestCommand},
   {"capcal", capCalCommand},
@@ -83,15 +86,23 @@ static const ShellCommand commands[] = {
   {"geneseq", cmd_geneseq},
   {"genetweak", cmd_genetweak},
   {"friendlocal", cmd_friendlocal},
+#ifndef SLIM_MODE
   {"friendlist", cmd_friendlist},
   {"friendping", cmd_friendping},
   {"friendsim", cmd_friendsim},
   {"sd", cmd_sd},
+#endif
+#ifdef TESTING_PLEASE
+  {"test", testCommand},
   {"auditlog", cmd_printaudit},
   {"auditcheck", cmd_auditcheck},
   {"testall", cmd_testall},
+#endif
 #ifdef HAS_STC3115
   {"gg2", gg2Command},
+#endif
+#ifdef EGGS_TESTPATTERN
+  {"e_test_ctrl", cmd_SetTestPatternLed},
 #endif
   {NULL, NULL}
 };

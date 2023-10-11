@@ -14,8 +14,10 @@ event_source_t accel_bump;
 
 event_source_t i2s_full_event;
 
-void orchardEventsStart(void) {
-
+void orchardEventsStart(void)
+{
+   //- These are event sources and they are initalized as this uses the chibios event system
+   
   // ADC-related events
   chEvtObjectInit(&celcius_rdy);
 

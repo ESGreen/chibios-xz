@@ -38,19 +38,37 @@ static uint8_t bump_level = 0;
 #define OSCOPE_UPDATE_FAIL 500 // 0.5 seconds until auto retrigger of update, in case ui is disrupted
 
 static uint32_t last_ui_time = 0;
-static uint32_t last_oscope_time = 0;
-static uint32_t last_oscope_update = 0;
 
 static char title[32];
 static  const char item1[] = "Yes";
 static  const char item2[] = "No";
 static struct OrchardUiContext listUiContext;
-static char partner[GENE_NAMELENGTH];  // name of current sex partner
+static char partner[GENE_NAMELENGTH+2];  // name of current sex partner
 
+#ifdef SLIM_MODE
+uint8_t anonymous = 0;
+#endif
+
+
+//-- THIS IS STUFF FOR THE SCOPE MODE. THIS IS HERE TO ACT AS A SCREEN SAVER.
+#if defined SCOPE_MODE && SCOPE_MODE > 0
+static uint32_t last_oscope_time = 0;
+static uint32_t last_oscope_update = 0;
 extern uint8_t scopemode_g;  // used by the oscope routine
 static uint8_t oscope_running = 0;
 static uint16_t *samples;
 static uint32_t oscope_trigger = 1;
+
+void agc(uint16_t  *sample, uint16_t *output);
+void agc_fft(uint8_t  *sample);
+
+
+
+//-- WITH NOTHING ELSE WE NEED A BLANK MODE TO SAVE THAT LITTTLE OLED
+#else
+static bool showBlank_ = false;
+static uint32_t screenTimeout_ = 8000; // Below this timeout is about 15 sec
+#endif 
 
 uint8_t sex_running = 0;
 uint8_t sex_done = 0;
@@ -59,15 +77,20 @@ uint32_t sex_timer;
 
 #define SEX_TIMEOUT (8 * 1000)  // 15 seconds for partner to respond before giving up
 
-#define NUM_SAMPLES MIC_SAMPLE_DEPTH  // was NUM_RX_SAMPLES / 4
 
-void agc(uint16_t  *sample, uint16_t *output);
-void agc_fft(uint8_t  *sample);
+// **********************************************************************************************************************
+// **********************************************************************************************************************
+// **********************************************************************************************************************
 
+
+
+// --- DEFINE OSCOPE FUNCTIONS
+#if defined SCOPE_MODE && SCOPE_MODE > 0
 // happens within a gfxlock
 void precompute(uint16_t *samples);
 void dbcompute(uint16_t *sample);
 
+// **********************************************************************************************************************
 static void do_oscope(void) {
 
   if( oscope_trigger ) {
@@ -85,11 +108,18 @@ static void do_oscope(void) {
     orchardGfxEnd();
   } 
 }
+#endif
 
+
+
+
+
+// **********************************************************************************************************************
 uint8_t getMutationRate(void) {
   return ((256 / BUMP_LIMIT) * bump_level) + 2;
 }
 
+// **********************************************************************************************************************
 static void do_shaker(void) {
   font_t font;
   coord_t width;
@@ -127,6 +157,7 @@ static void do_shaker(void) {
   orchardGfxEnd();
 }
 
+// **********************************************************************************************************************
 static void redraw_ui(uint8_t uimode) {
   font_t font;
   coord_t width;
@@ -155,12 +186,14 @@ static void redraw_ui(uint8_t uimode) {
     do_shaker();
     return;
   }
-  
+
+#if defined SCOPE_MODE && SCOPE_MODE > 0
   if( oscope_running ) {
     // do oscope stuff
     do_oscope();
     return;
   }
+#endif
 
   if( (chVTGetSystemTime() - last_ui_time) > UI_LOCKOUT_TIME )
     friendsSort();
@@ -207,6 +240,16 @@ static void redraw_ui(uint8_t uimode) {
 
   gdispClear(Black);
 
+
+#if ! defined SCOPE_MODE || SCOPE_MODE <= 0
+  if (showBlank_)
+  {
+    gdispFlush ();
+    orchardGfxEnd ();
+    return;
+  }
+#endif 
+
   // generate the title bar
   gdispFillArea(0, 0, width, header_height - 1, White);
   if( strncmp(effectsCurName(), "Lg", 2) != 0 )
@@ -218,10 +261,10 @@ static void redraw_ui(uint8_t uimode) {
                      tmp, font, Black, justifyLeft);
 
   if( friend_total > 0 )
-    chsnprintf(tmp, sizeof(tmp), "%d/%d %d %d%%", friend_index + 1, friend_total, 6 - getShift(),
+    chsnprintf(tmp, sizeof(tmp), "%d/%d %d %d%%", friend_index + 1, friend_total, 6 - getShiftCeiling (),
 	       ggStateofCharge());
   else 
-    chsnprintf(tmp, sizeof(tmp), "b%d %d%%", 6 - getShift(), ggStateofCharge());
+    chsnprintf(tmp, sizeof(tmp), "b%d %d%%", 6 - getShiftCeiling (), ggStateofCharge());
     
   gdispDrawStringBox(0, 0, width, header_height,
                      tmp, font, Black, justifyRight);
@@ -277,6 +320,7 @@ static void redraw_ui(uint8_t uimode) {
   orchardGfxEnd();
 }
 
+// **********************************************************************************************************************
 static void confirm_sex(OrchardAppContext *context) {
   const char **friends;
   const OrchardUi *listUi;
@@ -314,26 +358,37 @@ static void confirm_sex(OrchardAppContext *context) {
   
 }
 
-static uint32_t led_init(OrchardAppContext *context) {
 
+
+
+///--- The LED APP is just the default app. It will start after some pause. 
+// **********************************************************************************************************************
+// **********************************************************************************************************************
+static uint32_t led_init(OrchardAppContext *context)
+{
   (void)context;
   return 0;
 }
 
-static void led_start(OrchardAppContext *context) {
-  
+// **********************************************************************************************************************
+// **********************************************************************************************************************
+static void led_start(OrchardAppContext *context)
+{  
   (void)context;
   font_t font;
   coord_t height;
   coord_t fontheight;
 
+#if defined SCOPE_MODE && SCOPE_MODE > 0
   scopemode_g = 0; // start in oscope mode, not dB mode
+  oscope_running = 0;
+  last_oscope_time = chVTGetSystemTime();
+#endif
   
   last_ui_time = chVTGetSystemTime();
-  last_oscope_time = chVTGetSystemTime();
-  oscope_running = 0;
   sex_running = 0;
   orchardGfxStart();
+  
   // determine # of lines total displayble on the screen based on the font
   font = gdispOpenFont(LED_UI_FONT);
   height = gdispGetHeight();
@@ -350,188 +405,289 @@ static void led_start(OrchardAppContext *context) {
   redraw_ui(0);
 }
 
-void led_event(OrchardAppContext *context, const OrchardAppEvent *event) {
+// **********************************************************************************************************************
+// **********************************************************************************************************************
+void led_event (OrchardAppContext *context, const OrchardAppEvent *event)
+{
+   (void)context;
+   uint8_t shift;
+   uint8_t selected = 0;
+   char sexpacket[GENE_NAMELENGTH * 2 + 2];
 
-  (void)context;
-  uint8_t shift;
-  uint8_t selected = 0;
-  char sexpacket[GENE_NAMELENGTH * 2 + 2];
-  int i;
-  int16_t *sample_in;
+#if defined SCOPE_MODE && SCOPE_MODE > 0
+   int i;
+   int16_t *sample_in;
+#endif
   
-  if (event->type == keyEvent) {
-    if (event->key.flags == keyDown) {
-      if( sex_clear_event == 1 ) {
-	sex_clear_event = 0; // ignore the first keydown event after sex, because it might be from the rubbing
-      } else if( (bump_level < BUMP_LIMIT) && (sex_running) ) {
-	bump_level++;
-	// next is an else-if because we want no buttons to trigger in sex mode
-      } else if ( event->key.code == keyBottomR ) {
-	shift = getShift();
-	shift++;
-	if (shift > 6)
-	  shift = 6;
-	setShift(shift);
-      }
-      else if( event->key.code == keyTopR ) {
-	shift = getShift();
-	if( shift > 0 )
-	  shift--;
-	setShift(shift);
-      }
-      else if ( event->key.code == keyRight ) {
-	effectsNextPattern(1);
-	last_oscope_time = chVTGetSystemTime();
-	oscope_running = 0;
-      }
-      else if ( event->key.code == keyLeft ) {
-	effectsPrevPattern(1);
-	last_oscope_time = chVTGetSystemTime();
-	oscope_running = 0;
-      }
-      else if( event->key.code == keyBottom ) {
-	if( friend_total != 0 )
-	  friend_index = (friend_index + 1) % friend_total;
-	else
-	  friend_index = 0;
-	last_ui_time = chVTGetSystemTime();
-	last_oscope_time = chVTGetSystemTime();
-	oscope_running = 0;
-      } else if( event->key.code == keyTop) {
-	if( friend_total != 0 ) {
-	  if( friend_index == 0 )
-	    friend_index = friend_total;
-	  friend_index--;
-	} else {
-	  friend_index = 0;
-	}
-	last_ui_time = chVTGetSystemTime();
-	last_oscope_time = chVTGetSystemTime();
-	oscope_running = 0;
-      } else if( event->key.code == keySelect ) {
-	last_ui_time = chVTGetSystemTime();
-	// oscope timer does not reset on select as it should swap between FFT and time domain mode
-	if( oscope_running ) {
-	  scopemode_g = (scopemode_g + 1) % 3;
-	} else {
-	  if( friend_total != 0 ) { // we have friends
-	    if( strncmp(effectsCurName(), "Lg", 2) == 0 ) { // and we're sporting a genetic light
-	      // trigger sex protocol
-	      confirm_sex(context);
-	    }
-	  }
-	}
-      }
-    }
-  } else if(event->type == radioEvent) {
-    // placeholder
-  } else if( event->type == uiEvent ) {
-    last_ui_time = chVTGetSystemTime();
-    last_oscope_time = chVTGetSystemTime();
-    
-    chHeapFree(listUiContext.itemlist); // free the itemlist passed to the UI
-    selected = (uint8_t) context->instance->ui_result;
-    context->instance->ui = NULL;
-    context->instance->uicontext = NULL;
+   if (event-> type == keyEvent)
+   {
+      //-- KEY DOWN
+      if (event-> key.flags == keyDown)
+      {
+         if( sex_clear_event == 1 ) {
+            sex_clear_event = 0; // ignore the first keydown event after sex, because it might be from the rubbing
+         }
+         else if( (bump_level < BUMP_LIMIT) && (sex_running) )
+         {
+            bump_level++;
+            // next is an else-if because we want no buttons to trigger in sex mode
+         }
+         else if ( event-> key.code == keyBottomR )
+         {
+            shift = getShiftCeiling ();
+            shift++;
+            if (shift > 6)
+               shift = 6;
+            setShiftCeiling (shift);
+         }
 
-    if(selected == 0) { // 0 means we said yes based on list item order in the UI
-      sex_done = 0;
-      sex_running = 1;
-      sex_timer = chVTGetSystemTime();
-#if SEXTEST
-      {
-	const struct genes *family;
-	family = (const struct genes *) storageGetData(GENE_BLOCK);
-	handle_radio_sex_req(radio_prot_sex_req, 255, 255, 
-			     strlen(family->name), family->name);
-      }
+         //-- KEY TOP R
+         else if( event-> key.code == keyTopR )
+         {
+            shift = getShiftCeiling ();
+            if( shift > 0 )
+               shift--;
+            setShiftCeiling (shift);
+         }
+
+         //-- KEY RIGHT
+         else if ( event-> key.code == keyRight )
+         {
+            effectsNextPattern (1);
+#if defined SCOPE_MODE && SCOPE_MODE > 0
+            last_oscope_time = chVTGetSystemTime ();
+            oscope_running = 0;
+#endif
+         }
+
+         //-- KEY LEFT
+         else if ( event-> key.code == keyLeft )
+         {
+            effectsPrevPattern (1);
+#if defined SCOPE_MODE && SCOPE_MODE > 0
+            last_oscope_time = chVTGetSystemTime ();
+            oscope_running = 0;
+#endif
+         }
+
+         //-- KEY BOTTOM
+         else if( event-> key.code == keyBottom )
+         {
+            if( friend_total != 0 )
+               friend_index = (friend_index + 1) % friend_total;
+            else
+               friend_index = 0;
+            last_ui_time = chVTGetSystemTime ();
+        
+#if defined SCOPE_MODE && SCOPE_MODE > 0
+            last_oscope_time = chVTGetSystemTime ();
+            oscope_running = 0;
 #else
+            showBlank_ = false;
+#endif
+         }
+
+         //-- KEY TOP
+         else if( event-> key.code == keyTop)
+         {
+            if( friend_total != 0 )
+            {
+               if (friend_index == 0) 
+                  friend_index = friend_total;
+               friend_index--;
+            }
+            else
+               friend_index = 0;
+            last_ui_time = chVTGetSystemTime ();
+
+#if defined SCOPE_MODE && SCOPE_MODE > 0
+            last_oscope_time = chVTGetSystemTime ();
+            oscope_running = 0;
+#endif 
+         }
+
+         //-- KEY SELECT
+         else if( event-> key.code == keySelect )
+         {
+            last_ui_time = chVTGetSystemTime ();
+
+#if defined SCOPE_MODE && SCOPE_MODE > 0
+            // oscope timer does not reset on select as it should swap between FFT and time domain mode
+            if (oscope_running)
+               scopemode_g = (scopemode_g + 1) % 3;
+            else if (friend_total != 0) 
+            {
+               // and we're sporting a genetic light
+               if (strncmp (effectsCurName (), "Lg", 2) == 0 )
+                  // trigger sex protocol
+                  confirm_sex (context);
+            }
+               
+#else
+            // and we're sporting a genetic light
+            if (strncmp (effectsCurName (), "Lg", 2) == 0 )
+               // trigger sex protocol
+               confirm_sex (context);
+#endif
+         }
+      }
+   }
+
+
+   else if(event-> type == radioEvent) {
+      // placeholder
+   }
+
+
+   else if( event-> type == uiEvent )
+   {
+      last_ui_time = chVTGetSystemTime ();
+#if defined SCOPE_MODE && SCOPE_MODE > 0
+      last_oscope_time = chVTGetSystemTime ();
+#endif 
+    
+      chHeapFree (listUiContext.itemlist); // free the itemlist passed to the UI
+      selected = (uint8_t) context-> instance-> ui_result;
+      context-> instance-> ui = NULL;
+      context-> instance-> uicontext = NULL;
+
+      if(selected == 0) { // 0 means we said yes based on list item order in the UI
+         sex_done = 0;
+         sex_running = 1;
+         sex_timer = chVTGetSystemTime ();
+#if SEXTEST
+         {
+            const struct genes *family;
+            family = (const struct genes *) storageGetData (GENE_BLOCK);
+            handle_radio_sex_req (radio_prot_sex_req, 255, 255, 
+                                  strlen (family-> name), family-> name);
+         }
+#else
+         {
+            const struct genes *family;
+            family = (const struct genes *) storageGetData (GENE_BLOCK);
+            //strncpy (sexpacket, &(partner[1]), GENE_NAMELENGTH);
+            strncpy (sexpacket, partner+1, GENE_NAMELENGTH);
+            strncpy (&(sexpacket[strlen (&(partner[1]))+1]), family-> name, GENE_NAMELENGTH);
+            radioAcquire (radioDriver);
+            sexmode = 1;
+            radioSend (radioDriver, RADIO_BROADCAST_ADDRESS, radio_prot_sex_req,
+                       GENE_NAMELENGTH * 2 + 2, sexpacket);
+            sexmode = 0;
+            radioRelease (radioDriver);
+         }
+#endif
+         configIncSexInitiations (); // track # times we tried to have sex
+      }
+   }
+
+   //-- ADC EVENT
+   else if( event-> type == adcEvent)
+   {
+      // if (event-> adc.code == adcCodeMic) {
+      //    processAudioFrame ();
+      // }
+      
+#if defined SCOPE_MODE && SCOPE_MODE > 0
+      if( oscope_running )
       {
-	const struct genes *family;
-	family = (const struct genes *) storageGetData(GENE_BLOCK);
-	strncpy(sexpacket, &(partner[1]), GENE_NAMELENGTH);
-	strncpy(&(sexpacket[strlen(&(partner[1]))+1]), family->name, GENE_NAMELENGTH);
-	radioAcquire(radioDriver);
-	sexmode = 1;
-	radioSend(radioDriver, RADIO_BROADCAST_ADDRESS, radio_prot_sex_req,
-		  GENE_NAMELENGTH * 2 + 2, sexpacket);
-	sexmode = 0;
-	radioRelease(radioDriver);
+         last_oscope_update = chVTGetSystemTime ();
+         if( event-> adc.code == adcCodeMic ) {
+
+            //- sample_in is int16_t* 
+            sample_in = analogReadMic ();
+            samples = (uint16_t *) sample_in;
+
+            // - 32768L = 0x8000 (This looks like some cra cra to just do abs ()
+            for( i = 0; i < NUM_RX_SAMPLES * NUM_RX_BLOCKS; i++ ) 
+               samples[i] = (uint16_t) (((int32_t) sample_in[i] + 32768L) & 0xFFFF);
+
+            oscope_trigger = 1;
+            if( context-> instance-> ui == NULL )
+               redraw_ui (0);
+         }
+         analogUpdateMic ();
       }
 #endif
-      configIncSexInitiations(); // track # times we tried to have sex
-    }
-  } else if( event->type == adcEvent) {
-    if( oscope_running ) {
-      last_oscope_update = chVTGetSystemTime();
-      if( event->adc.code == adcCodeMic ) {
-	sample_in = analogReadMic();
-	samples = (uint16_t *) sample_in;
-	for( i = 0; i < NUM_RX_SAMPLES * NUM_RX_BLOCKS; i++ ) {
-	  samples[i] = (uint16_t) (((int32_t) sample_in[i] + 32768L) & 0xFFFF);
-	}
+   }
 
-	oscope_trigger = 1;
-	if( context->instance->ui == NULL )
-	  redraw_ui(0);
+   //-- TIMER EVENT
+   else if (event-> type == timerEvent)
+   {
+      if( sex_running == 0 )
+         bump_level = 0;
+      if( bump_level > 0 )
+         bump_level--;
+      if( context-> instance-> ui == NULL )
+         redraw_ui (0);
+   }
+
+   else if (event-> type == accelEvent) 
+   {
+      if ((bump_level < BUMP_LIMIT) && (sex_running)) 
+         bump_level++;
+    
+      if (context-> instance-> ui == NULL) 
+         redraw_ui (0);
+   }
+
+   //-- HANDLE THE SEX RUNNING
+   if( sex_running )
+   {
+#if defined SCOPE_MODE && SCOPE_MODE > 0
+      last_oscope_time = chVTGetSystemTime ();  // don't allow oscope to start while having sex
+#endif
+     
+      if( ((chVTGetSystemTime () - sex_timer) > SEX_TIMEOUT) ) {
+         sex_running = 0;
+         sex_done = 0;
+         redraw_ui (1);  // indicate that sex has timed out
       }
-      analogUpdateMic();
-    }
-  } else if (event->type == timerEvent) {
-    if( sex_running == 0 )
-      bump_level = 0;
-    if( bump_level > 0 )
-      bump_level--;
-    if( context->instance->ui == NULL )
-      redraw_ui(0);
-  } else if( event->type == accelEvent ) {
-    if( (bump_level < BUMP_LIMIT) && (sex_running) )
-      bump_level++;
-    
-    if( context->instance->ui == NULL )
-      redraw_ui(0);
-  }
-
-  if( sex_running ) {
-    last_oscope_time = chVTGetSystemTime();  // don't allow oscope to start while having sex
-    if( ((chVTGetSystemTime() - sex_timer) > SEX_TIMEOUT) ) {
-      sex_running = 0;
-      sex_done = 0;
-      redraw_ui(1);  // indicate that sex has timed out
-    }
-    if( sex_done ) {
-      sex_running = 0;
-      sex_done = 0;
-      check_lightgene_hack();
-      redraw_ui(2);  // indicate that sex is done
-      sex_clear_event = 1;  // flush event pipe so rubbing doesn't activate pads
-    }
-  }
+      if( sex_done ) {
+         sex_running = 0;
+         sex_done = 0;
+         check_lightgene_hack ();
+         redraw_ui (2);  // indicate that sex is done
+         sex_clear_event = 1;  // flush event pipe so rubbing doesn't activate pads
+      }
+   }
   
-  // redraw UI on any event
-  if( context->instance->ui == NULL ) {
-    redraw_ui(0);
+   // redraw UI on any event
+   if( context-> instance-> ui == NULL ) {
+      redraw_ui (0);
 
-    // only kick off oscope if we're not in a UI mode...
-    if( ((chVTGetSystemTime() - last_oscope_time) > OSCOPE_IDLE_TIME) && !oscope_running ) {
-      analogUpdateMic(); // this kicks off the ADC sampling; once this returns, the UI will swap modes automagically
-      last_oscope_update = chVTGetSystemTime();
-      oscope_running = 1;
-    }
+#if defined SCOPE_MODE && SCOPE_MODE > 0
+      // only kick off oscope if we're not in a UI mode...
+      if( ((chVTGetSystemTime () - last_oscope_time) > OSCOPE_IDLE_TIME) // We exceed the idle time
+          && !oscope_running )  // And we ain't in oscope mode
+      { 
+       
+         analogUpdateMic (); // this kicks off the ADC sampling; once this returns, the UI will swap modes automagically
+         last_oscope_update = chVTGetSystemTime ();
+         oscope_running = 1;
+      }
     
-    if( ((chVTGetSystemTime() - last_oscope_update) > OSCOPE_UPDATE_FAIL) && oscope_running ) {
-      // refresh UI in case of a long interruption, e.g. sex prompts etc.
-      analogUpdateMic();
-      last_oscope_update = chVTGetSystemTime();
-    }
-  }
+      if( ((chVTGetSystemTime () - last_oscope_update) > OSCOPE_UPDATE_FAIL) && oscope_running ) {
+         // refresh UI in case of a long interruption, e.g. sex prompts etc.
+         analogUpdateMic ();
+         last_oscope_update = chVTGetSystemTime ();
+      }
+#else
+      if (showBlank_ == false
+          && (chVTGetSystemTime () - last_ui_time) > screenTimeout_)
+      {
+         showBlank_ = true;
+      }
+#endif 
+   }
 }
 
-static void led_exit(OrchardAppContext *context) {
-
-  (void)context;
+// **********************************************************************************************************************
+// **********************************************************************************************************************
+static void led_exit(OrchardAppContext *context)
+{
+  (void) context;
 }
-
 orchard_app("Blinkies and Sex!", led_init, led_start, led_event, led_exit);
 
 

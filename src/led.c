@@ -22,48 +22,36 @@ orchard_effects_end();
 
 extern void ledUpdate(uint8_t *fb, uint32_t len);
 
-static void ledSetRGB(void *ptr, int x, uint8_t r, uint8_t g, uint8_t b, uint8_t shift);
-static void ledSetColor(void *ptr, int x, Color c, uint8_t shift);
-static void ledSetRGBClipped(void *fb, uint32_t i,
-                      uint8_t r, uint8_t g, uint8_t b, uint8_t shift);
-static Color ledGetColor(void *ptr, int x);
+void ledSetRGB(void *ptr, int x, uint8_t r, uint8_t g, uint8_t b, uint8_t shift);
+//static void ledSetColor(void *ptr, int x, Color c, uint8_t shift);
+// static void ledSetRGBClipped(void *fb, uint32_t i,
+//                       uint8_t r, uint8_t g, uint8_t b, uint8_t shift);
+// static Color ledGetColor(void *ptr, int x);
 
-// hardware configuration information
-// max length is different from actual length because some
-// pattens may want to support the option of user-added LED
-// strips, whereas others will focus only on UI elements in the
-// circle provided on the board itself
-static struct led_config {
-  uint8_t       *fb; // effects frame buffer
-  uint8_t       *final_fb;  // merged ui + effects frame buffer
-  uint32_t      pixel_count;  // generated pixel length
-  uint32_t      max_pixels;   // maximal generation length
-  uint8_t       *ui_fb; // frame buffer for UI effects
-  uint32_t      ui_pixels;  // number of LEDs on the PCB itself for UI use
-} led_config;
 
 // global effects state
 static effects_config fx_config;
 static uint8_t fx_index = 0;  // current effect
 static uint8_t fx_max = 0;    // max # of effects
 
-static uint8_t shift = 2;  // start a little bit dimmer
-
 static uint32_t bump_amount = 0;
 static uint8_t bumped = 0;
 static unsigned int bumptime = 0;
-static unsigned long reftime = 0;
-static unsigned long reftime_tau = 0;
-static unsigned long offset = 0;
-static unsigned int waverate = 10;
-static unsigned int waveloop = 0;
+//static unsigned long reftime = 0;
+//static unsigned long reftime_tau = 0;
+//static unsigned long offset = 0;
+//static unsigned int waverate = 10;
+//static unsigned int waveloop = 0;
 static unsigned int patternChanged = 0;
 static uint32_t reftime_lg = 0;
 static uint8_t sat_offset = 0;
 
-static int wavesign = -1;
+//static int wavesign = -1;
 
 static uint8_t ledExitRequest = 0;
+static LedConfig led_config;
+
+
 uint8_t ledsOff = 1;
 
 genome diploid;   // not static so we can access/debug from other files
@@ -121,37 +109,37 @@ void uiLedSet(uint8_t index, Color c) {
   led_config.ui_fb[index*3+2] = c.b;
 }
 
-static void ledSetRGBClipped(void *fb, uint32_t i,
-                      uint8_t r, uint8_t g, uint8_t b, uint8_t shift) {
-  if (i >= led_config.pixel_count)
-    return;
-  ledSetRGB(fb, i, r, g, b, shift);
-}
+// static void ledSetRGBClipped(void *fb, uint32_t i,
+//                       uint8_t r, uint8_t g, uint8_t b, uint8_t shift) {
+//   if (i >= led_config.pixel_count)
+//     return;
+//   ledSetRGB(fb, i, r, g, b, shift);
+// }
 
-static void ledSetRGB(void *ptr, int x, uint8_t r, uint8_t g, uint8_t b, uint8_t shift) {
+void ledSetRGB(void *ptr, int x, uint8_t r, uint8_t g, uint8_t b, uint8_t shift) {
   uint8_t *buf = ((uint8_t *)ptr) + (3 * x);
   buf[0] = g >> shift;
   buf[1] = r >> shift;
   buf[2] = b >> shift;
 }
 
-static void ledSetColor(void *ptr, int x, Color c, uint8_t shift) {
-  uint8_t *buf = ((uint8_t *)ptr) + (3 * x);
-  buf[0] = c.g >> shift;
-  buf[1] = c.r >> shift;
-  buf[2] = c.b >> shift;
-}
+// static void ledSetColor(void *ptr, int x, Color c, uint8_t shift) {
+//   uint8_t *buf = ((uint8_t *)ptr) + (3 * x);
+//   buf[0] = c.g >> shift;
+//   buf[1] = c.r >> shift;
+//   buf[2] = c.b >> shift;
+// }
 
-static Color ledGetColor(void *ptr, int x) {
-  Color c;
-  uint8_t *buf = ((uint8_t *)ptr) + (3 * x);
+// static Color ledGetColor(void *ptr, int x) {
+//   Color c;
+//   uint8_t *buf = ((uint8_t *)ptr) + (3 * x);
 
-  c.g = buf[0];
-  c.r = buf[1];
-  c.b = buf[2];
+//   c.g = buf[0];
+//   c.r = buf[1];
+//   c.b = buf[2];
   
-  return c;
-}
+//   return c;
+// }
 
 void ledSetCount(uint32_t count) {
   if (count > led_config.max_pixels)
@@ -159,12 +147,21 @@ void ledSetCount(uint32_t count) {
   led_config.pixel_count = count;
 }
 
-void setShift(uint8_t s) {
-    shift = s;
+static uint8_t shift_ = 3;  // start a little bit dimmer
+void setShiftCeiling (uint8_t s) {
+    shift_ = s;
 }
 
-uint8_t getShift(void) {
-    return shift;
+uint8_t getShiftCeiling (void) {
+    return shift_;
+}
+
+static uint8_t beatShift_ = 7;
+void setBeatShift (uint8_t beatShift) {
+   beatShift_ = beatShift;
+}
+uint8_t getBeatShift (void) {
+   return shift_ < beatShift_ ? shift_ : beatShift_;
 }
 
 // alpha blend, scale the input color based on a value from 0-255. 255 is full-scale, 0 is black-out.
@@ -184,28 +181,28 @@ Color alphaPix( Color c, uint8_t alpha ) {
   return( rc );  
 }
 
-static Color Wheel(uint8_t wheelPos) {
-  Color c;
+// static Color Wheel(uint8_t wheelPos) {
+//   Color c;
 
-  if (wheelPos < 85) {
-    c.r = wheelPos * 3;
-    c.g = 255 - wheelPos * 3;
-    c.b = 0;
-  }
-  else if (wheelPos < 170) {
-    wheelPos -= 85;
-    c.r = 255 - wheelPos * 3;
-    c.g = 0;
-    c.b = wheelPos * 3;
-  }
-  else {
-    wheelPos -= 170;
-    c.r = 0;
-    c.g = wheelPos * 3;
-    c.b = 255 - wheelPos * 3;
-  }
-  return c;
-}
+//   if (wheelPos < 85) {
+//     c.r = wheelPos * 3;
+//     c.g = 255 - wheelPos * 3;
+//     c.b = 0;
+//   }
+//   else if (wheelPos < 170) {
+//     wheelPos -= 85;
+//     c.r = 255 - wheelPos * 3;
+//     c.g = 0;
+//     c.b = wheelPos * 3;
+//   }
+//   else {
+//     wheelPos -= 170;
+//     c.r = 0;
+//     c.g = wheelPos * 3;
+//     c.b = 255 - wheelPos * 3;
+//   }
+//   return c;
+// }
 
 static void do_lightgene(struct effects_config *config) {
   uint8_t *fb = config->hwconfig->fb;
@@ -229,6 +226,9 @@ static void do_lightgene(struct effects_config *config) {
   uint8_t hue_dir;
   uint32_t hue_temp;
   // diploid is static to this function and set when the lightgene is selected
+  uint8_t shift = getBeatShift ();
+
+    
 
   tau = (uint32_t) map(diploid.cd_rate, 0, 255, 700, 8000);
   curtime = chVTGetSystemTime();
@@ -376,11 +376,10 @@ static void strobePatternFB(struct effects_config *config) {
   int count = config->count;
   
   uint16_t i;
-  uint8_t oldshift = shift;
   static uint32_t  nexttime = 0;
   static uint8_t   strobemode = 1;
   
-  shift = 0;
+  uint8_t shift = 0;
 
   if( strobemode && (chVTGetSystemTime() > nexttime) ) {
     for( i = 0; i < count; i++ ) {
@@ -402,30 +401,9 @@ static void strobePatternFB(struct effects_config *config) {
     nexttime = chVTGetSystemTime() + 30 + (rand() % 25);
     strobemode = 1;
   }
-
-  shift = oldshift;
 }
 orchard_effects("strobe", strobePatternFB);
 
-#if 0
-static void calmPatternFB(struct effects_config *config) {
-  uint8_t *fb = config->hwconfig->fb;
-  int count = config->count;
-  int loop = config->loop;
-  
-  int i;
-  int count_mask;
-  Color c;
-
-  count_mask = count & 0xff;
-  loop = loop % (256 * 5);
-  for (i = 0; i < count; i++) {
-    c = Wheel( (i * (256 / count_mask) + loop) & 0xFF );
-    ledSetRGB(fb, i, c.r, c.g, c.b, shift);
-  }
-}
-orchard_effects("calm", calmPatternFB);
-#endif
 
 static void testPatternFB(struct effects_config *config) {
   uint8_t *fb = config->hwconfig->fb;
@@ -434,422 +412,84 @@ static void testPatternFB(struct effects_config *config) {
   
   int i = 0;
 
-#if 0
-  while (i < count) {
-    /* Black */
-    ledSetRGB(fb, (i + loop) % count, 0, 0, 0, shift);
-    if (++i >= count) break;
+// #if 0
+//   while (i < count) {
+//     /* Black */
+//     ledSetRGB(fb, (i + loop) % count, 0, 0, 0, shift);
+//     if (++i >= count) break;
 
-    /* Red */
-    ledSetRGB(fb, (i + loop) % count, 255, 0, 0, shift);
-    if (++i >= count) break;
+//     /* Red */
+//     ledSetRGB(fb, (i + loop) % count, 255, 0, 0, shift);
+//     if (++i >= count) break;
 
-    /* Yellow */
-    ledSetRGB(fb, (i + loop) % count, 255, 255, 0, shift);
-    if (++i >= count) break;
+//     /* Yellow */
+//     ledSetRGB(fb, (i + loop) % count, 255, 255, 0, shift);
+//     if (++i >= count) break;
 
-    /* Green */
-    ledSetRGB(fb, (i + loop) % count, 0, 255, 0, shift);
-    if (++i >= count) break;
+//     /* Green */
+//     ledSetRGB(fb, (i + loop) % count, 0, 255, 0, shift);
+//     if (++i >= count) break;
 
-    /* Cyan */
-    ledSetRGB(fb, (i + loop) % count, 0, 255, 255, shift);
-    if (++i >= count) break;
+//     /* Cyan */
+//     ledSetRGB(fb, (i + loop) % count, 0, 255, 255, shift);
+//     if (++i >= count) break;
 
-    /* Blue */
-    ledSetRGB(fb, (i + loop) % count, 0, 0, 255, shift);
-    if (++i >= count) break;
+//     /* Blue */
+//     ledSetRGB(fb, (i + loop) % count, 0, 0, 255, shift);
+//     if (++i >= count) break;
 
-    /* Purple */
-    ledSetRGB(fb, (i + loop) % count, 255, 0, 255, shift);
-    if (++i >= count) break;
+//     /* Purple */
+//     ledSetRGB(fb, (i + loop) % count, 255, 0, 255, shift);
+//     if (++i >= count) break;
 
-    /* White */
-    ledSetRGB(fb, (i + loop) % count, 255, 255, 255, shift);
-    if (++i >= count) break;
-  }
-#endif
+//     /* White */
+//     ledSetRGB(fb, (i + loop) % count, 255, 255, 255, shift);
+//     if (++i >= count) break;
+//   }
+// #endif
 #if 1
+  uint8_t shift = getShiftCeiling ();
   while (i < count) {
     if (loop & 1) {
       /* Black */
-      ledSetRGB(fb, (i++ + loop) % count, 0, 0, 0, shift);
+       ledSetRGB (fb, (i++ + loop) % count, 0, 0, 0, shift);
 
       /* Black */
-      ledSetRGB(fb, (i++ + loop) % count, 0, 0, 0, shift);
+       ledSetRGB (fb, (i++ + loop) % count, 0, 0, 0, shift);
 
       /* Red */
-      ledSetRGB(fb, (i++ + loop) % count, 128, 0, 0, shift);
+       ledSetRGB (fb, (i++ + loop) % count, 128, 0, 0, shift);
     }
     else {
       /* Red */
-      ledSetRGB(fb, (i++ + loop) % count, 128, 0, 0, shift);
+       ledSetRGB (fb, (i++ + loop) % count, 128, 0, 0, shift);
 
       /* Black */
-      ledSetRGB(fb, (i++ + loop) % count, 0, 0, 0, shift);
+       ledSetRGB (fb, (i++ + loop) % count, 0, 0, 0, shift);
 
       /* Black */
-      ledSetRGB(fb, (i++ + loop) % count, 0, 0, 0, shift);
+       ledSetRGB (fb, (i++ + loop) % count, 0, 0, 0, shift);
     }
   }
 #endif
-#if 0
-  //  int threshold = (phageAdcGet() * count / 4096);
-  int threshold = (20 * count / 4096);   ////////// NOTE NOTE BODGE
-  for (i = 0; i < count; i++) {
-    if (i > threshold)
-      ledSetRGB(fb, i, 255, 0, 0, shift);
-    else
-      ledSetRGB(fb, i, 0, 0, 0, shift);
-  }
-#endif
+// #if 0
+//   //  int threshold = (phageAdcGet() * count / 4096);
+//   int threshold = (20 * count / 4096);   ////////// NOTE NOTE BODGE
+//   for (i = 0; i < count; i++) {
+//     if (i > threshold)
+//       ledSetRGB(fb, i, 255, 0, 0, shift);
+//     else
+//       ledSetRGB(fb, i, 0, 0, 0, shift);
+//   }
+// #endif
  
 }
 orchard_effects("safetyPattern", testPatternFB);
 
-#if 0
-static void shootPatternFB(struct effects_config *config) {
-  uint8_t *fb = config->hwconfig->fb;
-  int count = config->count;
-  int loop = config->loop;
-  
-  int i;
-
-  //loop = (loop >> 3) % count;
-  loop = loop % count;
-  for (i = 0; i < count; i++) {
-    if (loop == i)
-      ledSetRGB(fb, i, 255, 255, 255, shift);
-    else
-      ledSetRGB(fb, i, 0, 0, 0, shift);
-  }
-}
-orchard_effects("circlestar", shootPatternFB);
-#endif
-
-#define VU_X_PERIOD 3   // number of waves across the entire band
-#define VU_T_PERIOD 2500  // time to complete 2pi rotation, in integer milliseconds
-#define TAU 1000
-
-#if 0
-static void waveRainbowFB(struct effects_config *config) {
-  uint8_t *fb = config->hwconfig->fb;
-  int count = config->count;
-  
-  unsigned long curtime;
-  int i;
-  uint32_t c;
-  uint16_t colorrate = 1;
-  
-  curtime = chVTGetSystemTime() + offset;
-  if ((curtime - reftime) > VU_T_PERIOD)
-    reftime = curtime;
-
-  if ((curtime - reftime_tau) > TAU) {
-    reftime_tau = curtime;
-    waverate -= 4;
-    if (waverate < 10)
-      waverate = 10;
-    
-    if (colorrate > 1)
-      colorrate -= 1;
-  }
-
-  if (bumped) {
-    bumped = 0;
-    waverate += 20;
-    colorrate += 1;
-    if (waverate > 300)
-      waverate = 300;
-    if (colorrate > 10)
-      colorrate = 10;
-  }
-
-  offset += waverate;
-  if (offset > 0x80000000) {
-    offset = 0;
-    curtime = chVTGetSystemTime();
-    reftime = curtime;
-    reftime_tau = curtime;
-  }
-
-  waveloop += colorrate;
-  if (waveloop == (256 * 5)) {
-    waveloop = 0;
-  }
-  for (i = 0; i < count; i++) {
-    fix16_t count_n = fix16_from_int(i * VU_X_PERIOD);
-    fix16_t count_d = fix16_from_int(count - 1);
-    fix16_t time_n = fix16_from_int(curtime - reftime);
-    fix16_t time_d = fix16_from_int(VU_T_PERIOD);
-    fix16_t ratios = fix16_add(
-                fix16_div(count_n, count_d), fix16_div(time_n, time_d));
-
-    /* 'ratios' now goes from 0 to 2, depending on where we are in the cycle */
-
-    ratios = fix16_mul(ratios, fix16_from_int(2));
-    ratios = fix16_mul(ratios, fix16_pi);
-    fix16_t v = fix16_sin(ratios);
-
-    /* Normalize, go from [-1, 1] to [0, 256] */
-    v = fix16_mul(fix16_add(v, fix16_from_int(1)), fix16_from_int(127));
-
-    c = fix16_to_int(v);
-
-    /* Quick and dirty nonlinearity */
-    c = c * c;
-    c = (c >> 8) & 0xFF;
-
-    ledSetColor(fb, i, alphaPix(Wheel(((i * 256 / count) + waveloop) & 255), (uint8_t) c), shift);
-  }  
-}
-orchard_effects("WaveRainbow", waveRainbowFB);
-#endif
-
-#if 0
-static void directedRainbowFB(struct effects_config *config) {
-  uint8_t *fb = config->hwconfig->fb;
-  int count = config->count;
-  
-  unsigned long curtime;
-  uint32_t i;
-  uint32_t c;
-  uint32_t colorrate = 1;
-  
-  curtime = chVTGetSystemTime() + offset;
-  if( (curtime - reftime) > VU_T_PERIOD )
-    reftime = curtime;
-
-  waverate = 80;
-  colorrate = 1;
-
-  if( bumped ) {
-    bumped = 0;
-    if( wavesign == 1 )
-      wavesign = -1;
-    else
-      wavesign = 1;
-  }
-
-  offset += waverate;
-  if( offset > 0x80000000) {
-    offset = 0;
-    curtime = chVTGetSystemTime();
-    reftime = curtime;
-    reftime_tau = curtime;
-  }
-
-  waveloop += colorrate;
-  if( waveloop == (256 * 5) ) {
-    waveloop = 0;
-  }
-  for( i = 0; i < (uint32_t) count; i++ ) {
-    fix16_t count_n = fix16_from_int(i * VU_X_PERIOD);
-    fix16_t count_d = fix16_from_int(count - 1);
-    fix16_t time_n = fix16_from_int((curtime - reftime) * wavesign);
-    fix16_t time_d = fix16_from_int(VU_T_PERIOD);
-    fix16_t ratios = fix16_add(
-                fix16_div(count_n, count_d), fix16_div(time_n, time_d));
-
-    /* 'ratios' now goes from 0 to 2, depending on where we are in the cycle */
-
-    ratios = fix16_mul(ratios, fix16_from_int(2));
-    ratios = fix16_mul(ratios, fix16_pi);
-    fix16_t v = fix16_sin(ratios);
-
-    /* Normalize, go from [-1, 1] to [0, 256] */
-    v = fix16_mul(fix16_add(v, fix16_from_int(1)), fix16_from_int(127));
-
-    c = fix16_to_int(v);
-    
-    /* Quick and dirty nonlinearity */
-    c = c * c;
-    c = (c >> 8) & 0xFF;
-    ledSetColor(fb, i, alphaPix(Wheel(((i * 256 / count) + waveloop) & 255), (uint8_t) c), shift);
-  }  
-}
-
-static uint32_t asb_l(int i) {
-  if (i > 0)
-      return i;
-  return -i;
-}
-orchard_effects("directedRainbow", directedRainbowFB);
-#endif
-
-#if 0
-static int testlevel = 0;
-static void fxTest(struct effects_config *config) {
-  uint8_t *fb = config->hwconfig->fb;
-  int count = config->count;
-  int i;
-  Color c;
-  int loop = config->loop;
-
-  if( chVTTimeElapsedSinceX(reftime) > MS2ST(20) ) {
-    chprintf(stream, "%d\n\r", testlevel);
-    reftime = chVTGetSystemTime();
-    testlevel++;
-    testlevel %= 256;
-  }
-  
-  for( i = 0; i < count; i++ ) {
-    c.r = testlevel; c.g = 0; c.b = testlevel;
-    ledSetColor(fb, i, c, 0);
-  }
-
-}
-orchard_effects("_test", fxTest);
-#endif
-
-#define DROP_INT 600
-#define BUMP_TIMEOUT 2300
-#if 0
-static void raindropFB(struct effects_config *config) {
-  uint8_t *fb = config->hwconfig->fb;
-  int count = config->count;
-  
-  unsigned long curtime;
-  uint8_t oldshift = shift;
-  uint8_t myshift;
-  Color c;
-  int i;
-  
-  if(patternChanged) {
-    patternChanged = 0;
-    for( i = 0; i < count; i++ ) {
-      c.r = 0; c.g = 0; c.b = 0;
-      ledSetColor(fb, i, c, shift);
-    }
-    bumptime = bumptime - BUMP_TIMEOUT;
-  }
-
-  myshift = shift;
-  if( myshift > 3 )  // limit dimness as this is a sparse pattern
-    myshift = 3;
-
-  shift = 0;
-
-  curtime = chVTGetSystemTime();
-  if( ((curtime - reftime) > DROP_INT) && (curtime - bumptime > BUMP_TIMEOUT) ) {
-    reftime = curtime;
-    c.r = 255 >> myshift; c.g = 255 >> myshift; c.b = 255 >> myshift;
-  } else {
-    c.r = 0; c.g = 0; c.b = 0;
-  }
-
-  if( bumped ) {
-    bumped = 0;
-    c.r = 255 >> myshift; c.g = 255 >> myshift; c.b = 255 >> myshift;
-  }
-
-  ledSetColor(fb, 0, c, shift);
-
-  for( i = count-2; i >= 0; i-- ) {
-    c = ledGetColor(fb, i);
-    ledSetColor(fb, i+1, c, shift);
-  }
-
-  shift = oldshift;
-}
-orchard_effects("raindrop", raindropFB);
 
 
-static void rainbowDropFB(struct effects_config *config) {
-  uint8_t *fb = config->hwconfig->fb;
-  int count = config->count;
-  int loop = config->loop;
-  
-  unsigned long curtime;
-  uint8_t oldshift = shift;
-  uint8_t myshift;
-  Color c;
-  Color c2;
-  int i;
-  
-  if(patternChanged) {
-    patternChanged = 0;
-    for( i = 0; i < count; i++ ) {
-      c.r = 0; c.g = 0; c.b = 0;
-      ledSetColor(fb, i, c, shift);
-    }
-    bumptime = bumptime - BUMP_TIMEOUT;
-  }
-  c2.r = 0; c2.g = 0; c2.b = 0;
-
-  myshift = shift;
-  if( myshift > 3 )  // limit dimness as this is a sparse pattern
-    myshift = 3;
-
-  shift = 0;
-
-  loop = loop % (256 * 5);
-
-  curtime = chVTGetSystemTime();
-  if( ((curtime - reftime) > DROP_INT) && (curtime - bumptime > BUMP_TIMEOUT) ) {
-    c = Wheel(loop);
-    c2 = Wheel(loop + 1);
-    reftime = curtime;
-  } else {
-    c.r = 0; c.g = 0; c.b = 0;
-    c2.r = 0; c2.g = 0; c2.b = 0;
-  }
-
-  if( bumped ) {
-    bumped = 0;
-    c = Wheel(loop);
-    c2 = Wheel(loop + 1);
-  }
-
-  ledSetColor(fb, 0, c, shift);
-
-  for( i = count-2; i >= 0; i-- ) {
-    c2 = ledGetColor(fb, i);
-    ledSetColor(fb, i+1, c2, shift);
-  }
-
-  shift = oldshift;
-}
-orchard_effects("rainbowDrop", rainbowDropFB);
 
 
-static void larsonScannerFB(struct effects_config *config) {
-  uint8_t *fb = config->hwconfig->fb;
-  int count = config->count;
-  int loop = config->loop;
-  
-  int i;
-  int dir;
-
-  loop %= (count * 2);
-
-  if (loop >= count)
-    dir = 1;
-  else
-    dir = 0;
-
-  loop %= count;
-
-  for (i = 0; i < count; i++) {
-    uint32_t x = i;
-
-    if (dir)
-      x = count - i - 1;
-
-    /* LED going out */
-    if (asb_l(i - loop) == 2)
-      ledSetRGBClipped(fb, x, 1, 0, 0, shift);
-    else if (asb_l(i - loop) == 1)
-      ledSetRGBClipped(fb, x, 20, 0, 0, shift);
-    else if (asb_l(i - loop) == 0)
-      ledSetRGBClipped(fb, x, 255, 0, 0, shift);
-    else
-      ledSetRGBClipped(fb, x, 0, 0, 0, shift);
-  }
-
-}
-orchard_effects("larsonScanner", larsonScannerFB);
-#endif
 
 #define BUMP_DEBOUNCE 300 // 300ms debounce to next bump
 
@@ -923,6 +563,9 @@ void check_lightgene_hack(void) {
 const char *lightgeneName(void) {
   return diploid.name;
 }
+
+
+
 
 void effectsSetPattern(uint8_t index) {
   if(index > fx_max) {
@@ -1065,77 +708,79 @@ void effectsStart(void) {
   chThdCreateFromHeap(NULL, THD_WORKING_AREA_SIZE(256), "effects", NORMALPRIO - 6, effects_thread, &led_config);
 }
 
+#ifdef TESTING_PLEASE
 OrchardTestResult test_led(const char *my_name, OrchardTestType test_type) {
-  (void) my_name;
+   (void) my_name;
   
-  OrchardTestResult result = orchardResultPass;
-  uint16_t i;
-  uint8_t interactive = 0;
+   OrchardTestResult result = orchardResultPass;
+   uint16_t i;
+   uint8_t interactive = 0;
   
-  switch(test_type) {
-  case orchardTestPoweron:
-    // the LED is not easily testable as it's "write-only"
-    return orchardResultUnsure;
-  case orchardTestInteractive:
-    interactive = 20;  // 20 seconds to evaluate LED state...should be plenty
-  case orchardTestTrivial:
-  case orchardTestComprehensive:
-    orchardTestPrompt("Preparing", "LED test", 0);
-    while(ledsOff == 0) {
-      effectsStop();
-      chThdYield();
-      chThdSleepMilliseconds(100);
-    }
+   switch(test_type) {
+   case orchardTestPoweron:
+      // the LED is not easily testable as it's "write-only"
+      return orchardResultUnsure;
+   case orchardTestInteractive:
+      interactive = 20;  // 20 seconds to evaluate LED state...should be plenty
+   case orchardTestTrivial:
+   case orchardTestComprehensive:
+      orchardTestPrompt ("Preparing", "LED test", 0);
+      while(ledsOff == 0) {
+         effectsStop ();
+         chThdYield ();
+         chThdSleepMilliseconds (100);
+      }
 
-    // green pattern
-    for( i = 0; i < led_config.pixel_count * 3; i += 3 ) {
-      led_config.final_fb[i] = 255;
-      led_config.final_fb[i+1] = 0;
-      led_config.final_fb[i+2] = 0;
-    }
-    chSysLock();
-    ledUpdate(led_config.final_fb, led_config.pixel_count);
-    chSysUnlock();
-    orchardTestPrompt("green LED test", "", 0);
-    orchardTestPrompt("press button", "to advance", interactive);
-    chThdSleepMilliseconds(200);
+      // green pattern
+      for( i = 0; i < led_config.pixel_count * 3; i += 3 ) {
+         led_config.final_fb[i] = 255;
+         led_config.final_fb[i+1] = 0;
+         led_config.final_fb[i+2] = 0;
+      }
+      chSysLock ();
+      ledUpdate (led_config.final_fb, led_config.pixel_count);
+      chSysUnlock ();
+      orchardTestPrompt ("green LED test", "", 0);
+      orchardTestPrompt ("press button", "to advance", interactive);
+      chThdSleepMilliseconds (200);
 
-    // red pattern
-    for( i = 0; i < led_config.pixel_count * 3; i += 3 ) {
-      led_config.final_fb[i] = 0;
-      led_config.final_fb[i+1] = 255;
-      led_config.final_fb[i+2] = 0;
-    }
-    chSysLock();
-    ledUpdate(led_config.final_fb, led_config.pixel_count);
-    chSysUnlock();
-    chThdSleepMilliseconds(200);
-    orchardTestPrompt("red LED test", "", 0);
-    orchardTestPrompt("press button", "to advance", interactive);
-    chThdSleepMilliseconds(200);
+      // red pattern
+      for( i = 0; i < led_config.pixel_count * 3; i += 3 ) {
+         led_config.final_fb[i] = 0;
+         led_config.final_fb[i+1] = 255;
+         led_config.final_fb[i+2] = 0;
+      }
+      chSysLock ();
+      ledUpdate (led_config.final_fb, led_config.pixel_count);
+      chSysUnlock ();
+      chThdSleepMilliseconds (200);
+      orchardTestPrompt ("red LED test", "", 0);
+      orchardTestPrompt ("press button", "to advance", interactive);
+      chThdSleepMilliseconds (200);
 
-    // blue pattern
-    for( i = 0; i < led_config.pixel_count * 3; i += 3 ) {
-      led_config.final_fb[i] = 0;
-      led_config.final_fb[i+1] = 0;
-      led_config.final_fb[i+2] = 255;
-    }
-    orchardTestPrompt("blue LED test", "", 0);
-    chSysLock();
-    ledUpdate(led_config.final_fb, led_config.pixel_count);
-    chSysUnlock();
-    chThdSleepMilliseconds(200);
-    orchardTestPrompt("press button", "to advance", interactive);
-    chThdSleepMilliseconds(200);
+      // blue pattern
+      for( i = 0; i < led_config.pixel_count * 3; i += 3 ) {
+         led_config.final_fb[i] = 0;
+         led_config.final_fb[i+1] = 0;
+         led_config.final_fb[i+2] = 255;
+      }
+      orchardTestPrompt ("blue LED test", "", 0);
+      chSysLock ();
+      ledUpdate (led_config.final_fb, led_config.pixel_count);
+      chSysUnlock ();
+      chThdSleepMilliseconds (200);
+      orchardTestPrompt ("press button", "to advance", interactive);
+      chThdSleepMilliseconds (200);
 
-    orchardTestPrompt("LED test", "finished", 0);
-    // resume effects
-    effectsStart();
-    return result;
-  default:
-    return orchardResultNoTest;
-  }
+      orchardTestPrompt ("LED test", "finished", 0);
+      // resume effects
+      effectsStart ();
+      return result;
+   default:
+      return orchardResultNoTest;
+   }
   
-  return orchardResultNoTest;
+   return orchardResultNoTest;
 }
 orchard_test("ws2812b", test_led);
+#endif

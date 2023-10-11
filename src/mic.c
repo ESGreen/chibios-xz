@@ -20,37 +20,52 @@ extern int32_t __ram1_start__[];
 //int32_t *rx_samples = __ram1__;
 #define rx_samples __ram1_start__
 
-int16_t rx_savebuf[NUM_RX_SAMPLES * NUM_RX_BLOCKS];
+Audio_Sample_Type rx_savebuf[NUM_RX_SAMPLES * NUM_RX_BLOCKS];
 uint8_t rx_block = 0;
 
-uint32_t rx_cb_count = 0;
+//uint32_t rx_cb_count = 0;
 
-uint8_t gen_mic_event = 0;
+//uint8_t gen_mic_event = 0;
 
 volatile I2S_TypeDef *I2S = I2S0; // pointer to I2S hardware bank
 
 extern event_source_t i2s_full_event;
+uint32_t radioSample_;
 
-int rx_dma_count = 0;
+//DEBUG int rx_dma_count = 0;
 
 #define I2S_RX_WATERMARK 4
 #define DMA_I2S 2
 #define DMA_BACKBUFFER 3
 
 OSAL_IRQ_HANDLER(KINETIS_DMA3_IRQ_VECTOR) {
-  int i;
   
   OSAL_IRQ_PROLOGUE();
 
   writeb( &DMA->CINT, DMA_BACKBUFFER );
-  rx_dma_count++;
+  //DEBUG rx_dma_count++;
 
   // grab a copy of the data
-  for( i = 0; i < NUM_RX_SAMPLES; i++ ) {
+  for (int i = 0; i < NUM_RX_SAMPLES; i++ ) {
     // !! we actually throw away a couple of bits, >> 14 would give us everything the mic gives us,
     // but we're limited on space and CPU so toss the LSBs...
+#ifdef AUDIO_AS_INT
     rx_savebuf[i + rx_block * NUM_RX_SAMPLES] = (int16_t) (rx_samples[i] >> 16);
+#else
+    // The mic has an 18 bit dac.
+    //   Therefore the max value is 3FFFF
+    //   Therefore the half value is 1FFFF
+    //   The goal is to generate a value  1:-1
+    static const float halfValue = 0x1FFFF;
+    uint32_t normalizedValue = rx_samples[i] >> 14;
+    normalizedValue = normalizedValue + 0x20000;
+    normalizedValue = normalizedValue & 0x3FFFF;
+    //int32_t normalizedValue = (rx_samples[i] >> 14) & 0x3FFF;
+    float sampleValue = ((float) normalizedValue) / halfValue - 1.0f;
+    rx_savebuf[i + rx_block * NUM_RX_SAMPLES] = sampleValue;
+#endif
   }
+  radioSample_ = rx_samples[42];
 
   // re-enable the requests now that the back-buffer is copied
   writeb( &DMA->SERQ, DMA_BACKBUFFER );
@@ -161,13 +176,14 @@ void micStart(void) {
 }
 
 void analogUpdateMic(void) {
-  gen_mic_event = 1;
+   //gen_mic_event = 1;
 }
 
-int16_t *analogReadMic(void) {
-  return rx_savebuf;
+Audio_Sample_Type* analogReadMic(void) {
+   return rx_savebuf + (rx_block * NUM_RX_SAMPLES);
 }
 
+#ifdef TESTING_PLEASE
 OrchardTestResult test_mic(const char *my_name, OrchardTestType test_type) {
   (void) my_name;
   uint16_t min, max;
@@ -184,7 +200,7 @@ OrchardTestResult test_mic(const char *my_name, OrchardTestType test_type) {
     min = 65535; max = 0;
 
     for( j = 0; j < 20; j++ ) {
-      gen_mic_event = 1;
+       gen_mic_event = 1;
       
       chThdYield();
       chThdSleepMilliseconds(200);  // wait for mic to sample
@@ -218,3 +234,4 @@ OrchardTestResult test_mic(const char *my_name, OrchardTestType test_type) {
 }
 orchard_test("mic", test_mic);
 
+#endif
