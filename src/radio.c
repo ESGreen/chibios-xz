@@ -773,6 +773,7 @@ static void test_radio_handler(uint8_t prot, uint8_t src, uint8_t dst,
   test_rxseq++;
 }
 
+#ifdef TESTING_PLEASE
 #define RADIO_TEST_TIMEOUT_MS  5000
 #define RADIO_TEST_TX_RETRY_MS 300
 OrchardTestResult test_radio(const char *my_name, OrchardTestType test_type) {
@@ -847,3 +848,4 @@ OrchardTestResult test_radio(const char *my_name, OrchardTestType test_type) {
   return orchardResultNoTest;
 }
 orchard_test("radio", test_radio);
+#endif

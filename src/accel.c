@@ -429,6 +429,7 @@ msg_t accelPoll(struct accel_data *data) {
   return MSG_OK;
 }
 
+#ifdef TESTING_PLEASE
 OrchardTestResult test_accel(const char *my_name, OrchardTestType test_type) {
   (void) my_name;
   uint8_t ret;
@@ -454,3 +455,4 @@ OrchardTestResult test_accel(const char *my_name, OrchardTestType test_type) {
   return orchardResultNoTest;
 }
 orchard_test("accel", test_accel);
+#endif

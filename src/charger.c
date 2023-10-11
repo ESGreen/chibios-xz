@@ -373,7 +373,7 @@ void chargerShipMode(void) {
   }
 }
 
-
+#ifdef TESTING_PLEASE
 OrchardTestResult test_charger(const char *my_name, OrchardTestType test_type) {
   (void) my_name;
   uint8_t tx[2];
@@ -437,3 +437,4 @@ OrchardTestResult test_gasgauge(const char *my_name, OrchardTestType test_type) 
   return orchardResultNoTest;
 }
 orchard_test("gg", test_gasgauge);
+#endif

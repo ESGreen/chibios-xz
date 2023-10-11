@@ -1,3 +1,4 @@
+#ifdef TESTING_PLEASE
 #ifndef __ORCHARD_AUDIT__
 #define __ORCHARD_AUDIT__
 
@@ -62,3 +63,4 @@ void auditPrintLog(BaseSequentialStream *chp);
   mic     trivial; interactive
 
 */
+#endif

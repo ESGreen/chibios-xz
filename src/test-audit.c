@@ -1,3 +1,4 @@
+#ifdef TESTING_PLEASE
 #include "hal.h"
 
 #include "ch.h"
@@ -190,3 +191,4 @@ void auditUpdate(const char *name, OrchardTestType type, OrchardTestResult resul
 		     sizeof(auditEntry));
   }
 }
+#endif
